@@ -1,0 +1,218 @@
+# SSH Configuration Examples for Borg Backup
+# This file contains SSH configuration examples for secure remote backups
+
+# ============================================================================
+# ~/.ssh/config - SSH Client Configuration
+# ============================================================================
+
+# Backup Server Configuration
+Host backup-server
+    HostName backup.example.com
+    Port 22
+    User borgbackup
+    IdentityFile ~/.ssh/borg_backup_rsa
+    IdentitiesOnly yes
+    # Disable password authentication for security
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    # Connection settings for reliability
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    ConnectTimeout 30
+    # Compression for better performance over slow connections
+    Compression yes
+    # Security settings
+    Protocol 2
+    Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+    MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256,hmac-sha2-512
+    KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+
+# Secondary Backup Server (for redundancy)
+Host backup-server-2
+    HostName backup2.example.com
+    Port 2222
+    User borgbackup
+    IdentityFile ~/.ssh/borg_backup_rsa
+    IdentitiesOnly yes
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    ConnectTimeout 30
+    Compression yes
+
+# Cloud Backup Server (e.g., Hetzner Storage Box)
+Host hetzner-storage
+    HostName your-storagebox.your-server.de
+    Port 23
+    User u123456
+    IdentityFile ~/.ssh/borg_backup_rsa
+    IdentitiesOnly yes
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# ============================================================================
+# SSH Key Generation Commands
+# ============================================================================
+
+# Generate a dedicated SSH key pair for Borg backups:
+# ssh-keygen -t rsa -b 4096 -f ~/.ssh/borg_backup_rsa -C "borg-backup@$(hostname)"
+
+# Or use Ed25519 (recommended for better security and performance):
+# ssh-keygen -t ed25519 -f ~/.ssh/borg_backup_ed25519 -C "borg-backup@$(hostname)"
+
+# Set appropriate permissions:
+# chmod 600 ~/.ssh/borg_backup_rsa
+# chmod 644 ~/.ssh/borg_backup_rsa.pub
+
+# ============================================================================
+# Server-side SSH Configuration (/etc/ssh/sshd_config)
+# ============================================================================
+
+# Security hardening for backup server:
+# Protocol 2
+# PermitRootLogin no
+# PasswordAuthentication no
+# PubkeyAuthentication yes
+# AuthorizedKeysFile .ssh/authorized_keys
+# PermitEmptyPasswords no
+# ChallengeResponseAuthentication no
+# UsePAM yes
+# X11Forwarding no
+# PrintMotd no
+# ClientAliveInterval 300
+# ClientAliveCountMax 2
+# MaxAuthTries 3
+# MaxSessions 2
+
+# Restrict backup user to specific commands (in authorized_keys):
+# command="borg serve --restrict-to-path /backup/repos",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-rsa AAAAB3NzaC1yc2E...
+
+# ============================================================================
+# Backup User Setup on Server
+# ============================================================================
+
+# Create dedicated backup user:
+# sudo useradd -m -s /bin/bash borgbackup
+# sudo mkdir -p /backup/repos
+# sudo chown borgbackup:borgbackup /backup/repos
+# sudo chmod 750 /backup/repos
+
+# Setup SSH directory for backup user:
+# sudo mkdir -p /home/borgbackup/.ssh
+# sudo chmod 700 /home/borgbackup/.ssh
+# sudo touch /home/borgbackup/.ssh/authorized_keys
+# sudo chmod 600 /home/borgbackup/.ssh/authorized_keys
+# sudo chown -R borgbackup:borgbackup /home/borgbackup/.ssh
+
+# Add client's public key to authorized_keys with restrictions:
+# echo 'command="borg serve --restrict-to-path /backup/repos",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-rsa AAAAB3NzaC1yc2E...' | sudo tee -a /home/borgbackup/.ssh/authorized_keys
+
+# ============================================================================
+# SSH Connection Testing
+# ============================================================================
+
+# Test SSH connection:
+# ssh backup-server
+
+# Test Borg over SSH:
+# borg init --encryption=repokey-blake2 backup-server:/backup/repos/test-repo
+
+# Test with verbose output for troubleshooting:
+# ssh -v backup-server
+
+# ============================================================================
+# SSH Agent Configuration
+# ============================================================================
+
+# Add key to SSH agent (for automated backups):
+# ssh-add ~/.ssh/borg_backup_rsa
+
+# For systemd services, you might need to use a different approach:
+# Create a script that loads the key before running borg
+
+# ============================================================================
+# Firewall Configuration
+# ============================================================================
+
+# On backup server, allow SSH from backup clients:
+# sudo ufw allow from 192.168.1.100 to any port 22
+# sudo ufw allow from 203.0.113.10 to any port 22
+
+# Or allow SSH from specific networks:
+# sudo ufw allow from 192.168.1.0/24 to any port 22
+
+# ============================================================================
+# SSH Tunneling for Additional Security
+# ============================================================================
+
+# If you need to access backup server through a jump host:
+Host backup-via-jump
+    HostName backup-internal.local
+    Port 22
+    User borgbackup
+    ProxyJump jump-host.example.com
+    IdentityFile ~/.ssh/borg_backup_rsa
+    IdentitiesOnly yes
+
+# Jump host configuration:
+Host jump-host
+    HostName jump-host.example.com
+    Port 22
+    User jumpuser
+    IdentityFile ~/.ssh/jump_host_rsa
+
+# ============================================================================
+# Troubleshooting SSH Issues
+# ============================================================================
+
+# Debug SSH connection issues:
+# ssh -vvv backup-server
+
+# Test SSH key authentication:
+# ssh -o PreferredAuthentications=publickey backup-server
+
+# Check SSH agent:
+# ssh-add -l
+
+# Verify SSH configuration:
+# ssh -T backup-server
+
+# Check server logs:
+# sudo tail -f /var/log/auth.log
+
+# ============================================================================
+# Backup Script Integration
+# ============================================================================
+
+# Example of SSH key loading in backup script:
+# #!/bin/bash
+# 
+# # Load SSH key if not already loaded
+# if ! ssh-add -l | grep -q borg_backup; then
+#     ssh-add ~/.ssh/borg_backup_rsa
+# fi
+# 
+# # Run backup
+# borg create backup-server:/backup/repos/main::'{hostname}-{now}' \
+#     /home /etc /var/log
+# 
+# # Remove key from agent after backup (optional)
+# ssh-add -d ~/.ssh/borg_backup_rsa
+
+# ============================================================================
+# Security Best Practices
+# ============================================================================
+
+# 1. Use dedicated SSH keys for backups
+# 2. Restrict backup user permissions on server
+# 3. Use command restrictions in authorized_keys
+# 4. Regularly rotate SSH keys
+# 5. Monitor SSH access logs
+# 6. Use fail2ban to prevent brute force attacks
+# 7. Consider using non-standard SSH ports
+# 8. Implement network-level access controls
+# 9. Use SSH key passphrases where possible
+# 10. Regularly audit SSH configurations

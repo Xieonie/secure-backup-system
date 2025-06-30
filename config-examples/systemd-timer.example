@@ -1,0 +1,144 @@
+# Systemd Timer Configuration Examples for Borg Backup
+# Copy these files to /etc/systemd/system/ and customize as needed
+
+# ============================================================================
+# borg-backup.timer - Main backup timer
+# ============================================================================
+[Unit]
+Description=Run Borg Backup Daily
+Requires=borg-backup.service
+
+[Timer]
+# Run daily at 2:00 AM
+OnCalendar=daily
+Persistent=true
+# Add randomization to prevent all systems from backing up simultaneously
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target
+
+# ============================================================================
+# borg-backup-weekly.timer - Weekly full backup timer
+# ============================================================================
+[Unit]
+Description=Run Borg Weekly Full Backup
+Requires=borg-backup-weekly.service
+
+[Timer]
+# Run weekly on Sunday at 3:00 AM
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=3600
+
+[Install]
+WantedBy=timers.target
+
+# ============================================================================
+# borg-backup-health-check.timer - Health check timer
+# ============================================================================
+[Unit]
+Description=Run Borg Backup Health Check
+Requires=borg-backup-health-check.service
+
+[Timer]
+# Run health check every 6 hours
+OnCalendar=*-*-* 00,06,12,18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+# ============================================================================
+# borg-prune.timer - Cleanup old backups timer
+# ============================================================================
+[Unit]
+Description=Prune Old Borg Backups
+Requires=borg-prune.service
+
+[Timer]
+# Run weekly on Monday at 4:00 AM
+OnCalendar=Mon *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target
+
+# ============================================================================
+# Installation and Usage Instructions
+# ============================================================================
+
+# 1. Copy timer files to systemd directory:
+#    sudo cp borg-backup.timer /etc/systemd/system/
+#    sudo cp borg-backup-weekly.timer /etc/systemd/system/
+#    sudo cp borg-backup-health-check.timer /etc/systemd/system/
+#    sudo cp borg-prune.timer /etc/systemd/system/
+
+# 2. Create corresponding service files (see borg-backup.service example)
+
+# 3. Reload systemd configuration:
+#    sudo systemctl daemon-reload
+
+# 4. Enable and start timers:
+#    sudo systemctl enable borg-backup.timer
+#    sudo systemctl start borg-backup.timer
+#    sudo systemctl enable borg-backup-health-check.timer
+#    sudo systemctl start borg-backup-health-check.timer
+
+# 5. Check timer status:
+#    sudo systemctl list-timers
+#    sudo systemctl status borg-backup.timer
+
+# 6. View logs:
+#    sudo journalctl -u borg-backup.timer
+#    sudo journalctl -u borg-backup.service
+
+# ============================================================================
+# Advanced Timer Configurations
+# ============================================================================
+
+# Backup every 4 hours during business hours (8 AM to 8 PM):
+# OnCalendar=*-*-* 08,12,16,20:00:00
+
+# Backup on weekdays only at 2 AM:
+# OnCalendar=Mon..Fri *-*-* 02:00:00
+
+# Backup twice daily (morning and evening):
+# OnCalendar=*-*-* 02:00:00,22:00:00
+
+# Monthly backup on the first day of each month:
+# OnCalendar=*-*-01 03:00:00
+
+# Backup every 15 minutes (for testing):
+# OnCalendar=*:0/15
+
+# ============================================================================
+# Environment Variables for Services
+# ============================================================================
+
+# Create /etc/systemd/system/borg-backup.service.d/override.conf:
+# [Service]
+# Environment="BORG_REPO=/path/to/backup/repo"
+# Environment="BORG_PASSPHRASE=your-secure-passphrase"
+# Environment="BACKUP_NOTIFICATION_EMAIL=admin@example.com"
+
+# Or use EnvironmentFile:
+# EnvironmentFile=/etc/borg-backup/environment
+
+# ============================================================================
+# Monitoring and Alerting
+# ============================================================================
+
+# To get notified when backups fail, you can use:
+# OnFailure=backup-failure-notification.service
+
+# Example failure notification service:
+# [Unit]
+# Description=Backup Failure Notification
+# 
+# [Service]
+# Type=oneshot
+# ExecStart=/usr/local/bin/send-backup-failure-notification.sh
+# User=backup
+# Group=backup
