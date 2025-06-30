@@ -1,0 +1,17 @@
+[Unit]
+Description=Run Borgmatic Backup Daily
+Documentation=https://torsion.org/borgmatic/
+Requires=borg-backup.service
+
+[Timer]
+# Run daily at 2 AM
+OnCalendar=daily
+# Add randomization to avoid all systems backing up at once
+RandomizedDelaySec=1h
+# Ensure timer runs even if system was off
+Persistent=true
+# Accuracy (how close to the scheduled time)
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target

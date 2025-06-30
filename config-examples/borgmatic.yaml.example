@@ -1,0 +1,102 @@
+# Borgmatic configuration file example
+# Copy this file to ~/.config/borgmatic/config.yaml and customize
+
+# Repository locations
+repositories:
+    # Local repository (external drive, NAS)
+    - path: /mnt/backup/borg-repo
+      label: local-backup
+    
+    # Remote repository via SSH
+    - path: ssh://backup-user@backup-server.example.com:22/~/borg-repo
+      label: remote-backup
+    
+    # Optional: Cloud storage repository
+    # - path: ssh://user@cloud-provider.com:22/path/to/repo
+    #   label: cloud-backup
+
+# Source directories to backup
+source_directories:
+    - /home
+    - /etc
+    - /var/log
+    - /opt
+    - /root
+    
+# Exclude patterns
+exclude_patterns:
+    - '*.pyc'
+    - '*.pyo'
+    - '*.tmp'
+    - '*.cache'
+    - '*/.cache'
+    - '*/.local/share/Trash'
+    - '*/.thumbnails'
+    - '*/node_modules'
+    - '*/venv'
+    - '*/virtualenv'
+    - '*/__pycache__'
+    - '/home/*/.mozilla/firefox/*/Cache'
+    - '/home/*/.cache'
+    - '/var/cache'
+    - '/var/tmp'
+    - '/tmp'
+    - '/proc'
+    - '/sys'
+    - '/dev'
+    - '/run'
+    - '/mnt'
+    - '/media'
+
+# Backup name template
+archive_name_format: '{hostname}-{now:%Y-%m-%d-%H%M%S}'
+
+# Retention policy
+retention:
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 12
+    keep_yearly: 5
+
+# Consistency checks
+checks:
+    - name: repository
+      frequency: 2 weeks
+    - name: archives
+      frequency: 1 month
+
+# Pre/post backup hooks
+before_backup:
+    - echo "Starting backup at $(date)"
+    - systemctl stop mysql || true
+    - systemctl stop postgresql || true
+
+after_backup:
+    - systemctl start mysql || true
+    - systemctl start postgresql || true
+    - echo "Backup completed at $(date)"
+
+# Error handling
+on_error:
+    - echo "Backup failed at $(date)" | mail -s "Backup Failure" admin@example.com
+
+# Health check URLs (optional)
+healthchecks:
+    ping_url: https://hc-ping.com/your-uuid-here
+
+# Monitoring
+prometheus:
+    metrics_path: /var/lib/borgmatic/metrics.txt
+
+# Encryption settings (repository-level)
+encryption_passcommand: cat /etc/borgmatic/passphrase
+
+# SSH settings for remote repositories
+ssh_command: ssh -i /home/backup/.ssh/id_rsa
+
+# Logging
+verbosity: 1
+syslog_facility: LOG_LOCAL0
+
+# Storage quota (optional)
+storage_quota: 500G

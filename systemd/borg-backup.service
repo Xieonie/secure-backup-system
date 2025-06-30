@@ -1,0 +1,43 @@
+[Unit]
+Description=Borgmatic Backup Service
+Documentation=https://torsion.org/borgmatic/
+Wants=network-online.target
+After=network-online.target
+ConditionACPower=true
+
+[Service]
+Type=oneshot
+User=backup
+Group=backup
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/log/borgmatic /var/lib/borgmatic /tmp
+
+# Environment
+Environment=HOME=/home/backup
+Environment=XDG_CONFIG_HOME=/home/backup/.config
+
+# Command
+ExecStart=/usr/local/bin/borgmatic create --verbosity 1 --stats
+ExecStartPost=/usr/local/bin/borgmatic prune --verbosity 1
+ExecStartPost=/usr/local/bin/borgmatic check --verbosity 1
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=borgmatic
+
+# Timeout settings
+TimeoutStartSec=0
+TimeoutStopSec=300
+
+# Restart policy
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
